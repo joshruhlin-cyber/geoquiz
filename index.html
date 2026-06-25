@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GeoQuiz — Sports & History</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f1117;
+      color: #e8eaf0;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Splash ── */
+    #splash {
+      position: fixed; inset: 0; z-index: 1000;
+      background: #0f1117;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 24px; text-align: center; padding: 32px;
+    }
+    #splash h1 { font-size: clamp(2rem, 6vw, 3.6rem); font-weight: 800; letter-spacing: -1px; }
+    #splash h1 span { color: #4ade80; }
+    #splash p { font-size: 1.1rem; color: #9ca3af; max-width: 500px; line-height: 1.6; }
+    .pill-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+    .pill {
+      background: #1e2130; border: 1px solid #2e3347;
+      border-radius: 999px; padding: 6px 16px;
+      font-size: 0.85rem; color: #9ca3af;
+    }
+    #startBtn {
+      margin-top: 8px;
+      background: #4ade80; color: #0f1117;
+      border: none; border-radius: 12px;
+      padding: 14px 40px; font-size: 1.1rem; font-weight: 700;
+      cursor: pointer; transition: transform 0.15s, background 0.15s;
+    }
+    #startBtn:hover { background: #22c55e; transform: scale(1.04); }
+
+    /* ── Main layout ── */
+    #app { display: none; flex-direction: column; height: 100vh; }
+
+    /* Top bar */
+    #topbar {
+      background: #161926; border-bottom: 1px solid #2e3347;
+      padding: 10px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0; gap: 16px; flex-wrap: wrap;
+    }
+    #topbar .left { display: flex; align-items: center; gap: 14px; }
+    #topbar .logo { font-weight: 800; font-size: 1.05rem; color: #4ade80; letter-spacing: -0.5px; }
+    #progress-dots { display: flex; gap: 6px; }
+    .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #2e3347; transition: background 0.3s;
+    }
+    .dot.done { background: #4ade80; }
+    .dot.active { background: #facc15; }
+    #score-display { font-weight: 700; font-size: 0.95rem; color: #e8eaf0; }
+    #score-display span { color: #4ade80; }
+
+    /* Question panel */
+    #question-panel {
+      background: #161926; border-bottom: 1px solid #2e3347;
+      padding: 10px 20px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    #question-text { font-size: 1rem; font-weight: 600; flex: 1; line-height: 1.4; }
+    #q-counter { font-size: 0.8rem; color: #6b7280; white-space: nowrap; }
+    #category-tag {
+      background: #1e2130; border: 1px solid #2e3347;
+      border-radius: 999px; padding: 3px 10px;
+      font-size: 0.75rem; color: #9ca3af; white-space: nowrap;
+    }
+
+    /* Map */
+    #map-wrap { flex: 1; position: relative; }
+    #map { width: 100%; height: 100%; }
+
+    /* Click instruction overlay */
+    #click-hint {
+      position: absolute; bottom: 90px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15,17,23,0.85); backdrop-filter: blur(8px);
+      border: 1px solid #2e3347; border-radius: 10px;
+      padding: 8px 18px; font-size: 0.85rem; color: #9ca3af;
+      pointer-events: none; z-index: 500;
+      transition: opacity 0.4s;
+    }
+
+    /* Bottom action bar */
+    #action-bar {
+      background: #161926; border-top: 1px solid #2e3347;
+      padding: 12px 20px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    #guess-info { font-size: 0.9rem; color: #9ca3af; }
+    #guessBtn {
+      background: #4ade80; color: #0f1117;
+      border: none; border-radius: 10px;
+      padding: 10px 28px; font-size: 0.95rem; font-weight: 700;
+      cursor: pointer; transition: background 0.15s, opacity 0.15s;
+    }
+    #guessBtn:disabled { opacity: 0.35; cursor: not-allowed; }
+    #guessBtn:not(:disabled):hover { background: #22c55e; }
+    #nextBtn {
+      background: #3b82f6; color: #fff;
+      border: none; border-radius: 10px;
+      padding: 10px 28px; font-size: 0.95rem; font-weight: 700;
+      cursor: pointer; display: none; transition: background 0.15s;
+    }
+    #nextBtn:hover { background: #2563eb; }
+
+    /* Result overlay on map */
+    #result-overlay {
+      position: absolute; top: 14px; right: 14px; z-index: 600;
+      background: rgba(15,17,23,0.92); backdrop-filter: blur(10px);
+      border: 1px solid #2e3347; border-radius: 14px;
+      padding: 16px 20px; min-width: 230px;
+      display: none; flex-direction: column; gap: 8px;
+    }
+    #result-overlay .res-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: #6b7280; }
+    #result-overlay .res-location { font-weight: 700; font-size: 1rem; color: #e8eaf0; }
+    #result-overlay .res-distance { font-size: 1.5rem; font-weight: 800; }
+    #result-overlay .res-points { font-size: 0.9rem; color: #4ade80; font-weight: 700; }
+    .dist-good { color: #4ade80; }
+    .dist-ok   { color: #facc15; }
+    .dist-bad  { color: #f87171; }
+
+    /* Final results screen */
+    #results-screen {
+      position: fixed; inset: 0; z-index: 900;
+      background: #0f1117;
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 20px; padding: 32px; text-align: center;
+    }
+    #results-screen h2 { font-size: clamp(1.8rem, 5vw, 3rem); font-weight: 800; }
+    #final-score-big { font-size: clamp(3rem, 10vw, 5rem); font-weight: 900; color: #4ade80; }
+    #results-breakdown {
+      background: #161926; border: 1px solid #2e3347; border-radius: 14px;
+      padding: 16px 24px; width: 100%; max-width: 480px;
+    }
+    .res-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 0; border-bottom: 1px solid #2e3347; font-size: 0.9rem;
+    }
+    .res-row:last-child { border-bottom: none; }
+    .res-row .q-name { color: #9ca3af; text-align: left; flex: 1; }
+    .res-row .q-dist { color: #6b7280; font-size: 0.8rem; margin: 0 12px; }
+    .res-row .q-pts { font-weight: 700; color: #4ade80; }
+    #playAgainBtn {
+      background: #4ade80; color: #0f1117;
+      border: none; border-radius: 12px;
+      padding: 14px 40px; font-size: 1.1rem; font-weight: 700;
+      cursor: pointer; transition: background 0.15s;
+    }
+    #playAgainBtn:hover { background: #22c55e; }
+    #max-score-note { font-size: 0.8rem; color: #6b7280; }
+
+    /* Leaflet overrides */
+    .leaflet-container { background: #1a1e2c; }
+    .guess-marker-icon { filter: drop-shadow(0 2px 6px rgba(250,204,21,0.7)); }
+    .answer-marker-icon { filter: drop-shadow(0 2px 6px rgba(74,222,128,0.7)); }
+  </style>
+</head>
+<body>
+
+<!-- Splash -->
+<div id="splash">
+  <h1>Geo<span>Quiz</span></h1>
+  <p>Pin the location of famous sports venues and historical sites on the world map. How close can you get?</p>
+  <div class="pill-row">
+    <div class="pill">🏟️ Sports Venues</div>
+    <div class="pill">⚔️ Historical Sites</div>
+    <div class="pill">🌍 World Map</div>
+    <div class="pill">5 Questions</div>
+  </div>
+  <button id="startBtn">Start Playing</button>
+</div>
+
+<!-- Main App -->
+<div id="app">
+  <div id="topbar">
+    <div class="left">
+      <div class="logo">GeoQuiz</div>
+      <div id="progress-dots"></div>
+    </div>
+    <div id="score-display">Score: <span id="live-score">0</span></div>
+  </div>
+
+  <div id="question-panel">
+    <div id="question-text">Loading…</div>
+    <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+      <div id="category-tag"></div>
+      <div id="q-counter"></div>
+    </div>
+  </div>
+
+  <div id="map-wrap">
+    <div id="map"></div>
+    <div id="click-hint">Click anywhere on the map to place your pin</div>
+    <div id="result-overlay">
+      <div class="res-title">Correct Location</div>
+      <div class="res-location" id="res-location-name"></div>
+      <div class="res-title" style="margin-top:6px">Your Distance</div>
+      <div class="res-distance" id="res-distance-val"></div>
+      <div class="res-points" id="res-points-val"></div>
+    </div>
+  </div>
+
+  <div id="action-bar">
+    <div id="guess-info">No pin placed yet</div>
+    <button id="guessBtn" disabled>Submit Guess</button>
+    <button id="nextBtn">Next Question →</button>
+  </div>
+</div>
+
+<!-- Results -->
+<div id="results-screen">
+  <h2>Game Over!</h2>
+  <div id="final-score-big">0</div>
+  <div id="max-score-note">out of 25,000 possible points</div>
+  <div id="results-breakdown"></div>
+  <button id="playAgainBtn">Play Again</button>
+</div>
+
+<script>
+const QUESTIONS = [
+  {
+    text: "Where is Augusta National Golf Club, home of The Masters Tournament?",
+    category: "⛳ Golf",
+    answer: [33.5021, -82.0232],
+    location: "Augusta, Georgia, USA",
+    hint: "Augusta, Georgia"
+  },
+  {
+    text: "Where did the 'Rumble in the Jungle' take place — the 1974 boxing match between Muhammad Ali and George Foreman?",
+    category: "🥊 Boxing",
+    answer: [-4.3217, 15.3222],
+    location: "Kinshasa, DR Congo",
+    hint: "Kinshasa, DR Congo"
+  },
+  {
+    text: "Where is the Maracanã Stadium, iconic host of two FIFA World Cup Finals?",
+    category: "⚽ Soccer",
+    answer: [-22.9122, -43.2302],
+    location: "Rio de Janeiro, Brazil",
+    hint: "Rio de Janeiro, Brazil"
+  },
+  {
+    text: "Where was the 'Miracle on Ice' played — the 1980 Winter Olympics ice hockey game where the USA defeated the USSR?",
+    category: "🏒 Hockey",
+    answer: [44.2795, -73.9799],
+    location: "Lake Placid, New York, USA",
+    hint: "Lake Placid, New York"
+  },
+  {
+    text: "Where is Wimbledon's Centre Court, the oldest tennis grand slam venue in the world?",
+    category: "🎾 Tennis",
+    answer: [51.4341, -0.2139],
+    location: "Wimbledon, London, UK",
+    hint: "Wimbledon, London"
+  }
+];
+
+const MAX_POINTS_PER_ROUND = 5000;
+
+let ACTIVE_QUESTIONS = [];
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 +
+    Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function calcScore(km) {
+  if (km < 10)   return MAX_POINTS_PER_ROUND;
+  if (km < 100)  return Math.round(MAX_POINTS_PER_ROUND * 0.9);
+  if (km < 500)  return Math.round(MAX_POINTS_PER_ROUND * (1 - km/10000));
+  if (km < 2000) return Math.round(MAX_POINTS_PER_ROUND * Math.max(0, 1 - km/5000));
+  return Math.max(0, Math.round(MAX_POINTS_PER_ROUND * Math.max(0, 1 - km/15000)));
+}
+
+function distClass(km) {
+  if (km < 200)  return 'dist-good';
+  if (km < 1000) return 'dist-ok';
+  return 'dist-bad';
+}
+
+function fmtDist(km) {
+  if (km < 10) return `${Math.round(km * 10)/10} km`;
+  return `${Math.round(km).toLocaleString()} km`;
+}
+
+// State
+let map, guessMarker, answerMarker, line;
+let currentQ = 0, totalScore = 0;
+let guessLatLng = null;
+let roundResults = [];
+let revealed = false;
+
+// Marker icons
+const guessIcon = L.divIcon({
+  className: 'guess-marker-icon',
+  html: `<svg width="30" height="42" viewBox="0 0 30 42" xmlns="http://www.w3.org/2000/svg">
+    <path d="M15 0C6.716 0 0 6.716 0 15c0 11 15 27 15 27S30 26 30 15C30 6.716 23.284 0 15 0z" fill="#facc15"/>
+    <circle cx="15" cy="15" r="6" fill="#0f1117"/>
+  </svg>`,
+  iconSize: [30, 42], iconAnchor: [15, 42]
+});
+
+const answerIcon = L.divIcon({
+  className: 'answer-marker-icon',
+  html: `<svg width="30" height="42" viewBox="0 0 30 42" xmlns="http://www.w3.org/2000/svg">
+    <path d="M15 0C6.716 0 0 6.716 0 15c0 11 15 27 15 27S30 26 30 15C30 6.716 23.284 0 15 0z" fill="#4ade80"/>
+    <circle cx="15" cy="15" r="6" fill="#0f1117"/>
+  </svg>`,
+  iconSize: [30, 42], iconAnchor: [15, 42]
+});
+
+function initMap() {
+  map = L.map('map', {
+    center: [20, 10],
+    zoom: 2,
+    minZoom: 1,
+    maxZoom: 10,
+    worldCopyJump: false
+  });
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(map);
+
+  map.on('click', onMapClick);
+}
+
+function onMapClick(e) {
+  if (revealed) return;
+  guessLatLng = e.latlng;
+
+  if (guessMarker) guessMarker.remove();
+  guessMarker = L.marker(guessLatLng, { icon: guessIcon }).addTo(map);
+
+  document.getElementById('guess-info').textContent =
+    `Pin placed at ${guessLatLng.lat.toFixed(2)}°, ${guessLatLng.lng.toFixed(2)}°`;
+  document.getElementById('guessBtn').disabled = false;
+  document.getElementById('click-hint').style.opacity = '0';
+}
+
+function loadQuestion(idx) {
+  revealed = false;
+  guessLatLng = null;
+  if (guessMarker) { guessMarker.remove(); guessMarker = null; }
+  if (answerMarker) { answerMarker.remove(); answerMarker = null; }
+  if (line) { line.remove(); line = null; }
+
+  document.getElementById('result-overlay').style.display = 'none';
+  document.getElementById('guessBtn').style.display = 'inline-block';
+  document.getElementById('guessBtn').disabled = true;
+  document.getElementById('nextBtn').style.display = 'none';
+  document.getElementById('guess-info').textContent = 'No pin placed yet';
+  document.getElementById('click-hint').style.opacity = '1';
+
+  const q = ACTIVE_QUESTIONS[idx];
+  document.getElementById('question-text').textContent = q.text;
+  document.getElementById('category-tag').textContent = q.category;
+  document.getElementById('q-counter').textContent = `${idx + 1} / ${ACTIVE_QUESTIONS.length}`;
+
+  updateDots(idx);
+
+  map.setView([20, 10], 2);
+}
+
+function updateDots(active) {
+  const wrap = document.getElementById('progress-dots');
+  wrap.innerHTML = '';
+  ACTIVE_QUESTIONS.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i < active ? ' done' : i === active ? ' active' : '');
+    wrap.appendChild(d);
+  });
+}
+
+function submitGuess() {
+  if (!guessLatLng || revealed) return;
+  revealed = true;
+
+  const q = ACTIVE_QUESTIONS[currentQ];
+  const [aLat, aLng] = q.answer;
+  const km = haversineKm(guessLatLng.lat, guessLatLng.lng, aLat, aLng);
+  const pts = calcScore(km);
+  totalScore += pts;
+
+  roundResults.push({ name: q.text.substring(0, 40) + '…', km, pts });
+
+  // Place answer marker
+  answerMarker = L.marker([aLat, aLng], { icon: answerIcon })
+    .bindTooltip(q.location, { permanent: true, direction: 'top', offset: [0, -44],
+      className: 'leaflet-tooltip-dark' })
+    .addTo(map);
+
+  // Draw line
+  line = L.polyline([guessLatLng, [aLat, aLng]], {
+    color: '#94a3b8', weight: 2, dashArray: '6 4', opacity: 0.7
+  }).addTo(map);
+
+  // Fit both markers
+  const bounds = L.latLngBounds([guessLatLng, [aLat, aLng]]);
+  map.fitBounds(bounds, { padding: [60, 60], maxZoom: 8 });
+
+  // Show result overlay
+  const overlay = document.getElementById('result-overlay');
+  overlay.style.display = 'flex';
+  document.getElementById('res-location-name').textContent = q.location;
+  const distEl = document.getElementById('res-distance-val');
+  distEl.textContent = fmtDist(km);
+  distEl.className = `res-distance ${distClass(km)}`;
+  document.getElementById('res-points-val').textContent = `+${pts.toLocaleString()} pts`;
+
+  document.getElementById('live-score').textContent = totalScore.toLocaleString();
+  document.getElementById('guessBtn').style.display = 'none';
+
+  if (currentQ + 1 < ACTIVE_QUESTIONS.length) {
+    document.getElementById('nextBtn').style.display = 'inline-block';
+    document.getElementById('nextBtn').textContent = 'Next Question →';
+  } else {
+    document.getElementById('nextBtn').style.display = 'inline-block';
+    document.getElementById('nextBtn').textContent = 'See Results';
+  }
+}
+
+function nextQuestion() {
+  currentQ++;
+  if (currentQ >= ACTIVE_QUESTIONS.length) {
+    showResults();
+  } else {
+    loadQuestion(currentQ);
+  }
+}
+
+function showResults() {
+  document.getElementById('results-screen').style.display = 'flex';
+  document.getElementById('final-score-big').textContent = totalScore.toLocaleString();
+
+  const bd = document.getElementById('results-breakdown');
+  bd.innerHTML = '';
+  roundResults.forEach((r, i) => {
+    const row = document.createElement('div');
+    row.className = 'res-row';
+    row.innerHTML = `
+      <div class="q-name">Q${i+1}: ${ACTIVE_QUESTIONS[i].location}</div>
+      <div class="q-dist">${fmtDist(r.km)}</div>
+      <div class="q-pts">+${r.pts.toLocaleString()}</div>
+    `;
+    bd.appendChild(row);
+  });
+}
+
+function resetGame() {
+  currentQ = 0;
+  totalScore = 0;
+  roundResults = [];
+  revealed = false;
+  ACTIVE_QUESTIONS = shuffle(QUESTIONS);
+  document.getElementById('live-score').textContent = '0';
+  document.getElementById('results-screen').style.display = 'none';
+  loadQuestion(0);
+}
+
+// Boot
+document.getElementById('startBtn').addEventListener('click', () => {
+  document.getElementById('splash').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  ACTIVE_QUESTIONS = shuffle(QUESTIONS);
+  initMap();
+  loadQuestion(0);
+});
+
+document.getElementById('guessBtn').addEventListener('click', submitGuess);
+document.getElementById('nextBtn').addEventListener('click', nextQuestion);
+document.getElementById('playAgainBtn').addEventListener('click', resetGame);
+</script>
+</body>
+</html>
