@@ -234,41 +234,96 @@
 </div>
 
 <script>
-const QUESTIONS = [
+const QUESTION_POOL = [
   {
     text: "Where is Augusta National Golf Club, home of The Masters Tournament?",
     category: "⛳ Golf",
     answer: [33.5021, -82.0232],
-    location: "Augusta, Georgia, USA",
-    hint: "Augusta, Georgia"
+    location: "Augusta, Georgia, USA"
   },
   {
     text: "Where did the 'Rumble in the Jungle' take place — the 1974 boxing match between Muhammad Ali and George Foreman?",
     category: "🥊 Boxing",
     answer: [-4.3217, 15.3222],
-    location: "Kinshasa, DR Congo",
-    hint: "Kinshasa, DR Congo"
+    location: "Kinshasa, DR Congo"
   },
   {
     text: "Where is the Maracanã Stadium, iconic host of two FIFA World Cup Finals?",
     category: "⚽ Soccer",
     answer: [-22.9122, -43.2302],
-    location: "Rio de Janeiro, Brazil",
-    hint: "Rio de Janeiro, Brazil"
+    location: "Rio de Janeiro, Brazil"
   },
   {
-    text: "Where was the 'Miracle on Ice' played — the 1980 Winter Olympics ice hockey game where the USA defeated the USSR?",
+    text: "Where was the 'Miracle on Ice' played — the 1980 Winter Olympics hockey game where the USA defeated the USSR?",
     category: "🏒 Hockey",
     answer: [44.2795, -73.9799],
-    location: "Lake Placid, New York, USA",
-    hint: "Lake Placid, New York"
+    location: "Lake Placid, New York, USA"
   },
   {
     text: "Where is Wimbledon's Centre Court, the oldest tennis grand slam venue in the world?",
     category: "🎾 Tennis",
     answer: [51.4341, -0.2139],
-    location: "Wimbledon, London, UK",
-    hint: "Wimbledon, London"
+    location: "Wimbledon, London, UK"
+  },
+  {
+    text: "Where did the 1936 Summer Olympics take place, where Jesse Owens won four gold medals?",
+    category: "🏅 Olympics",
+    answer: [52.5150, 13.2395],
+    location: "Berlin, Germany"
+  },
+  {
+    text: "Where is Lambeau Field, legendary home of the Green Bay Packers?",
+    category: "🏈 Football",
+    answer: [44.5013, -88.0622],
+    location: "Green Bay, Wisconsin, USA"
+  },
+  {
+    text: "Where is the Estadio Santiago Bernabéu, home of Real Madrid?",
+    category: "⚽ Soccer",
+    answer: [40.4531, -3.6883],
+    location: "Madrid, Spain"
+  },
+  {
+    text: "Where did the 'Shot Heard 'Round the World' baseball game take place in 1951 (Bobby Thomson's home run)?",
+    category: "⚾ Baseball",
+    answer: [40.8712, -73.8878],
+    location: "The Polo Grounds, New York City, USA"
+  },
+  {
+    text: "Where is Fenway Park, the oldest Major League Baseball stadium still in use?",
+    category: "⚾ Baseball",
+    answer: [42.3467, -71.0972],
+    location: "Boston, Massachusetts, USA"
+  },
+  {
+    text: "Where was the first modern Olympic Games held in 1896?",
+    category: "🏅 Olympics",
+    answer: [37.9685, 23.7285],
+    location: "Athens, Greece"
+  },
+  {
+    text: "Where is Wrigley Field, home of the Chicago Cubs?",
+    category: "⚾ Baseball",
+    answer: [41.9484, -87.6553],
+    location: "Chicago, Illinois, USA"
+  },
+  {
+    text: "Where did the 1995 Rugby World Cup Final take place, where South Africa's Nelson Mandela famously wore the Springbok jersey?",
+    category: "🏉 Rugby",
+    answer: [-26.2001, 28.0439],
+    location: "Johannesburg, South Africa"
+  },
+  {
+    text: "Where is the Indianapolis Motor Speedway, home of the Indy 500?",
+    category: "🏎️ Racing",
+    answer: [39.7950, -86.2347],
+    location: "Indianapolis, Indiana, USA"
+  },
+  {
+    text: "Where is Old Trafford, home stadium of Manchester United?",
+    category: "⚽ Soccer",
+    answer: [53.4631, -2.2913],
+    location: "Manchester, England, UK"
   }
 ];
 
@@ -276,13 +331,13 @@ const MAX_POINTS_PER_ROUND = 5000;
 
 let ACTIVE_QUESTIONS = [];
 
-function shuffle(arr) {
-  const a = [...arr];
+function pickQuestions() {
+  const a = [...QUESTION_POOL];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];
   }
-  return a;
+  return a.slice(0, 5);
 }
 
 function haversineKm(lat1, lon1, lat2, lon2) {
@@ -484,7 +539,7 @@ function resetGame() {
   totalScore = 0;
   roundResults = [];
   revealed = false;
-  ACTIVE_QUESTIONS = shuffle(QUESTIONS);
+  ACTIVE_QUESTIONS = pickQuestions();
   document.getElementById('live-score').textContent = '0';
   document.getElementById('results-screen').style.display = 'none';
   loadQuestion(0);
@@ -494,7 +549,7 @@ function resetGame() {
 document.getElementById('startBtn').addEventListener('click', () => {
   document.getElementById('splash').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
-  ACTIVE_QUESTIONS = shuffle(QUESTIONS);
+  ACTIVE_QUESTIONS = pickQuestions();
   initMap();
   loadQuestion(0);
 });
